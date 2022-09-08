@@ -1,0 +1,35 @@
+---
+title: "Ventas"
+author: "Cruz del Cid"
+date: "2022-09-07"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readr)
+library(dplyr)
+library(leaflet)
+library(crosstalk)
+library(formattable)
+library(ggplot2)
+library(lubridate)
+library(DT)
+library(tm)
+library(wordcloud)
+library(readr)
+
+```
+
+```{r data}
+tienda <- read_csv("~/DataProduct/Proyecto Flexdashboard/tienda.csv")
+tienda %>% 
+  head() %>%
+  DT::datatable()
+
+
+```
+
