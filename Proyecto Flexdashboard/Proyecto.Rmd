@@ -1,0 +1,147 @@
+---
+title: "Flexdashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readr)
+library(dplyr)
+library(leaflet)
+library(crosstalk)
+library(formattable)
+library(ggplot2)
+library(lubridate)
+library(DT)
+library(tm)
+library(wordcloud)
+library(scales)
+```
+
+```{r data, include=FALSE}
+
+tienda <- read_csv("~/DataProduct/Proyecto Flexdashboard/tienda.csv")
+tienda <- tienda %>% 
+  rename_with(~gsub(" ","_",.x,fixed = TRUE))
+
+```
+
+```{r kips, include=FALSE}
+
+metricas <- tienda %>%
+  summarise(
+    tot_envios = n(),
+    tot_sales = sum(Sales), 
+    tot_quantity = sum(Quantity),
+    tot_discount = sum(Discount), 
+    tot_profit = sum(Profit), 
+    tot_products = n_distinct(Product_ID)
+  )
+
+productos_profit <- tienda %>% 
+  select(Product_Name, Product_ID, Profit) %>%
+  group_by(Product_Name, Product_ID) %>%
+  summarise(profit = sum(Profit)) %>%
+  arrange(desc(profit)) 
+
+```
+
+# Productos {data-icon='fa-box'}
+
+row
+-------------------------
+
+### Mejor producto 
+
+```{r}
+
+rentable <- productos_profit %>% 
+  head(1)
+  
+profit = dollar(round(rentable$profit,0))
+valueBox(profit, "Mas rentable",
+         caption = paste0("<b>Mas rentable</b><br>",
+                          rentable$Product_Name), 
+         icon = "fa-thumbs-up", color = "success")
+
+
+```
+
+### Productos rentables 
+```{r}
+productos_rentables <- productos_profit %>% 
+  filter(profit > 0)
+
+rentables <- nrow(productos_rentables) / metricas$tot_products
+
+nprofit <- round(rentables, 2) * 100
+gauge(nprofit, min=0, max=100, symbol = '%', 
+      gaugeSectors(success = c(70,100)))
+
+```
+
+
+row 
+------------------------
+
+### Peor producto 
+```{r}
+norentable <- productos_profit %>% 
+  arrange(profit) %>% 
+  head(1)
+
+nprofit = dollar(round(norentable$profit,0))
+valueBox(nprofit, caption = paste0("<b>Menos rentable</b><br>",
+                          norentable$Product_Name),
+         icon = "fa-thumbs-down", color = "danger")
+
+```
+
+
+### Productos que generan perdida 
+```{r}
+
+productos_norentables <- productos_profit %>% 
+  filter(profit < 0)
+
+nrentables <- nrow(productos_norentables) / metricas$tot_products
+
+nprofit <- round(nrentables, 2) * 100
+gauge(nprofit, min=0, max=100, symbol = '%', 
+      gaugeSectors(danger = c(0,20)))
+
+```
+
+
+# Segmentos {data-icon='fa-store'}
+
+# Regiones {data-icon='fa-globe'}
+
+# Entregas {data-icon='fa-truck'}
+
+# Data {data-icon='fa-database'}
+
+
+## {.tabset}
+
+### data
+```{r}
+tienda %>%
+  head(10) %>% 
+  DT::datatable()
+
+```
+
+
+### wordcloud 
+```{r}
+
+```
+
+
+
+
+

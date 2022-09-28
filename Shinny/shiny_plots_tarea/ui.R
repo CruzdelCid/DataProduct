@@ -1,4 +1,6 @@
 library(shiny)
+library(DT)
+
 
 
 shinyUI(fluidPage(
@@ -14,8 +16,7 @@ shinyUI(fluidPage(
                         dblclick = "dclk",
                         hover = 'mhover',
                         brush = 'mbrush' ),
-             verbatimTextOutput("click_data"),
-             tableOutput("mtcars_tbl")
+             DT::dataTableOutput("mtcars_tbl")
     )
   )
 ))
