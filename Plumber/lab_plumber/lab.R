@@ -28,13 +28,16 @@ function(req){
   boole <- length(req$args)
   
   if (boole != 0){
-    y <-list('req'= req$args,'query'=req$QUERY_STRING,'user'=req$HTTP_USER_AGENT)
+    d <- Sys.time()
+    
+    y <-list('req'= req$args,'query'=req$QUERY_STRING,
+             'user'=req$HTTP_USER_AGENT, 'time' = d)
     
     archivo <- toJSON(y, auto_unbox = TRUE)
     
     wd <- getwd()
     
-    d <- Sys.time()
+    
     
     dir <- paste0(wd,"/logs","/year=", year(d), "/month=", month(d), "/day=", day(d))
     
