@@ -3,7 +3,7 @@ title: "Flexdashboard"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
-    vertical_layout: fill
+vertical_layout: fill
 ---
 
 ```{r setup, include=FALSE}
@@ -19,29 +19,46 @@ library(DT)
 library(tm)
 library(wordcloud)
 library(scales)
+library(plotly)
+library(modeest)
 ```
 
 ```{r data, include=FALSE}
 
-tienda <- read_csv("~/DataProduct/Proyecto Flexdashboard/tienda.csv")
+#tienda <- read_csv("~/DataProduct/Proyecto Flexdashboard/tienda.csv")
+#tienda <- tienda %>% 
+#  rename_with(~gsub(" ","_",.x,fixed = TRUE))
+# saveRDS(tienda, file = "tienda.rds")
+
+tienda = readRDS(file = "tienda.rds")
+
 tienda <- tienda %>% 
-  rename_with(~gsub(" ","_",.x,fixed = TRUE))
+  mutate(mon = month(Ship_Date, label = TRUE, abbr = FALSE))
+
+tienda <- tienda %>% 
+  mutate(tiempo_entrega = Ship_Date - Order_Date)
 
 ```
 
+```{r shared_data, include=FALSE}
+data_share <- SharedData$new(tienda)
+```
+
+
 ```{r kips, include=FALSE}
 
-metricas <- tienda %>%
+metricas <- data_share$data(withFilter = TRUE) %>%
   summarise(
     tot_envios = n(),
     tot_sales = sum(Sales), 
     tot_quantity = sum(Quantity),
     tot_discount = sum(Discount), 
     tot_profit = sum(Profit), 
-    tot_products = n_distinct(Product_ID)
+    tot_products = n_distinct(Product_ID),
+    tot_clientes = n_distinct(Customer_Name)
   )
 
-productos_profit <- tienda %>% 
+productos_profit <- data_share$data(withFilter = TRUE) %>% 
   select(Product_Name, Product_ID, Profit) %>%
   group_by(Product_Name, Product_ID) %>%
   summarise(profit = sum(Profit)) %>%
@@ -49,10 +66,56 @@ productos_profit <- tienda %>%
 
 ```
 
-# Productos {data-icon='fa-box'}
+
+
+# Metricas {data-icon='fa-arrow-trend-up'}
 
 row
--------------------------
+------------------------
+
+### Ingresos totales 
+
+```{r}
+
+ingresos = dollar(round(metricas$tot_sales,0))
+valueBox(ingresos,
+         caption = paste0("<b>Ventas totales</b><br>"), 
+         icon = "fa-dollar", color = "#0CB7EB")
+
+```
+
+### profit 
+
+```{r}
+
+  
+profit = dollar(round(metricas$tot_profit,0))
+valueBox(profit, 
+         caption = paste0("<b>Ganancias</b><br>"), 
+         icon = "fa-thumbs-up", color = "#DED116")
+
+
+```
+
+
+
+### clientes 
+
+```{r}
+
+profit = as.character(round(metricas$tot_clientes,0))
+valueBox(profit,
+         caption = paste0("<b>Numero de Clientes</b><br>"), 
+         icon = "fa-people", 
+         color = "#F5840C"
+         )
+
+
+```
+
+
+row
+------------------------
 
 ### Mejor producto 
 
@@ -61,31 +124,14 @@ row
 rentable <- productos_profit %>% 
   head(1)
   
-profit = dollar(round(rentable$profit,0))
-valueBox(profit, "Mas rentable",
-         caption = paste0("<b>Mas rentable</b><br>",
-                          rentable$Product_Name), 
-         icon = "fa-thumbs-up", color = "success")
-
-
+info = dollar(round(rentable$profit,0))
+valueBox(info,
+         caption = paste0("<b>Producto mas rentable</b><br>",rentable$Product_Name), 
+         icon = "fa-thumbs-up", 
+         color = "#0CCC41"
+         )
 ```
 
-### Productos rentables 
-```{r}
-productos_rentables <- productos_profit %>% 
-  filter(profit > 0)
-
-rentables <- nrow(productos_rentables) / metricas$tot_products
-
-nprofit <- round(rentables, 2) * 100
-gauge(nprofit, min=0, max=100, symbol = '%', 
-      gaugeSectors(success = c(70,100)))
-
-```
-
-
-row 
-------------------------
 
 ### Peor producto 
 ```{r}
@@ -93,55 +139,321 @@ norentable <- productos_profit %>%
   arrange(profit) %>% 
   head(1)
 
-nprofit = dollar(round(norentable$profit,0))
-valueBox(nprofit, caption = paste0("<b>Menos rentable</b><br>",
-                          norentable$Product_Name),
-         icon = "fa-thumbs-down", color = "danger")
+
+info = dollar(round(norentable$profit,0))
+valueBox(info,
+         caption = paste0("<b>Producto menos rentable</b><br>",norentable$Product_Name),
+         icon = "fa-thumbs-down", 
+         color = "#F00038"
+         )
 
 ```
-
-
-### Productos que generan perdida 
-```{r}
-
-productos_norentables <- productos_profit %>% 
-  filter(profit < 0)
-
-nrentables <- nrow(productos_norentables) / metricas$tot_products
-
-nprofit <- round(nrentables, 2) * 100
-gauge(nprofit, min=0, max=100, symbol = '%', 
-      gaugeSectors(danger = c(0,20)))
-
-```
-
-
-# Segmentos {data-icon='fa-store'}
-
-# Regiones {data-icon='fa-globe'}
-
-# Entregas {data-icon='fa-truck'}
-
-# Data {data-icon='fa-database'}
-
 
 ## {.tabset}
 
-### data
+```{r, include=FALSE}
+
+filter_select("year","Ano de las metricas",data_share,group = ~year, multiple = FALSE)
+
+```
+
+
+### Ventas a lo largo del año 2017
 ```{r}
-tienda %>%
-  head(10) %>% 
+infoVentas <- data_share$data() %>% 
+      filter(year == 2017) %>%
+      group_by(week) %>% 
+      summarise(ventas = sum(Sales))
+
+plot_ly(infoVentas, 
+      type = "bar", x = ~week, y = ~ventas, color=~week)
+
+
+```
+
+
+### Listado de productos con sus ganancias 
+```{r}
+productos_profit %>% 
   DT::datatable()
 
 ```
 
 
-### wordcloud 
-```{r}
+
+
+
+
+
+
+
+
+# Segmentos {data-icon='fa-store'}
+
+```{r metricas_s, include=FALSE}
+
+metricas_segmento <- tienda %>% 
+  group_by(Segment) %>% 
+  summarise(clientes = n_distinct(Customer_ID), 
+            pedidos = n(),
+            ciudades = n_distinct(City),
+            ventas = round(sum(Sales),2), 
+            ganancias = round(sum(Profit),2), 
+            margen = round((ventas/ganancias)*100,2)
+            )
 
 ```
 
 
 
+row 
+------------------------------
+### Cantidad de clientes
+```{r}
+plot_ly(metricas_segmento, x=~Segment, y=~clientes, type = 'bar', color = ~clientes) %>% 
+  layout(title = 'Clientes por Segmento')
+
+```
 
 
+### Ganancias  
+```{r}
+plot_ly(metricas_segmento,labels = ~Segment,values = ~ganancias,type = 'pie') %>% 
+  layout(title = 'Ganancias por Segmento')
+
+```
+
+
+### Presencia en ciudades por Segmento  
+```{r}
+
+plot_ly(metricas_segmento, x = ~Segment, y = ~ciudades, text = ~ganancias, type = 'scatter', mode = 'markers',
+        marker = list(size = ~margen/10, opacity = 0.5), color = ~ciudades) %>% 
+  layout(title = 'Presencia en ciudades')
+
+```
+
+
+## {.tabset}
+
+### Ventas y ganancias por segmento
+
+```{r}
+
+
+segmentos <- tienda %>% 
+  group_by(Segment, year, mon) %>%
+  summarise(Ventas = round(sum(Sales),2),
+            Ganancia = round(sum(Profit),2)) %>%
+  ungroup()
+
+
+data_share_segment <- SharedData$new(segmentos)
+
+
+fig <- plot_ly(data_share_segment, x = ~mon, y = ~Ventas, name ='Ventas',type = 'scatter', mode = 'lines+markers')
+fig <- fig %>% add_trace(y = ~Ganancia, name ='Ganancias', type = 'scatter', mode = 'lines+markers')
+fig <- fig %>% layout(yaxis = list(title = 'Ventas (Dollares)'), 
+                      xaxis = list(title = 'Meses'), 
+                      width=1200, height=250)
+
+
+bscols(widths = c(NA,2),
+ fig, 
+ list(
+   filter_select("year","Año",data_share_segment, group = ~year, multiple = FALSE),
+   filter_select("Segment","Segmento",data_share_segment, group = ~Segment, multiple = FALSE)
+ )
+)
+```
+
+### Productos mas rentables por segmento
+```{r}
+a<- tienda %>%
+  group_by(Segment,Product_Name, Product_ID) %>% 
+  summarise(ganancia = sum(Profit)) %>% 
+  arrange(Segment,desc(ganancia)) %>% 
+  ungroup()
+
+data_share_seg_pro <- SharedData$new(a)
+
+bscols(widths = c(NA,2),
+       DT::datatable(data_share_seg_pro, 
+                     options = list(
+                           paging =TRUE,
+                           pageLength =  5 
+                           )
+),     
+ list(
+   filter_select("Segment","Segmento",data_share_seg_pro, group = ~Segment, multiple = FALSE)
+ )
+)
+
+```
+
+
+# Regiones {data-icon='fa-globe'}
+
+```{r metricas por region, include=FALSE}
+
+metricas_regiones <- tienda %>% 
+  group_by(Region) %>% 
+  summarise(ventas = sum(Sales), 
+            ganancias = sum(Profit), 
+            clientes = n_distinct(Customer_ID)) 
+
+geocoded <- read_csv("geocoded.csv")
+geocoded <- geocoded %>% select(original_City, lat, lon, state)
+geocoded <- rename(geocoded, City = original_City)
+
+metricas_ciudades <- tienda %>% 
+  group_by(City) %>% 
+  summarise(ventas = round(sum(Sales),2), 
+            ganancias = round(sum(Profit),2), 
+            clientes = n_distinct(Customer_ID),
+            margen = paste0("margen: ",round((ganancias/ventas)*100,2),"%") 
+            ) 
+
+metricas_ciudades <- metricas_ciudades %>% left_join(geocoded) %>% 
+  filter(!is.na(lat))
+
+```
+row
+--------------------------
+
+### Ventas y ganancias por region
+```{r}
+plot_ly(metricas_regiones, x=~Region, y=~ventas, type = 'bar',  name = "Ventas") %>% 
+  add_trace(y=~ganancias, type = 'bar',  name = "Ganancias")  %>%
+  layout(title = 'Ventas y ganancias por region')
+```
+
+
+### Ciudades 
+```{r}
+
+# cities <- tienda%>% select(City) %>% unique()
+
+shared_quakes <- SharedData$new(metricas_ciudades)
+leaflet(shared_quakes, width = "100%", height = 250) %>%
+  addTiles() %>%
+  addMarkers(lng = ~lon,
+             lat = ~lat, 
+             label = ~margen)
+
+```
+
+
+row
+-----------------------
+
+
+### Filtros 
+
+```{r}
+bscols(widths = c(NA,2),
+  list(
+    filter_select("estado","Filtro por Estado ",shared_quakes, group = ~state, multiple = TRUE),
+    filter_slider("Ganancia", "Rango de ganancia", shared_quakes, "ganancias",
+                  min = round(min(metricas_ciudades$ganancias)),
+                  max = round(max(metricas_ciudades$ganancias))
+                  )
+  )
+)
+
+```
+
+
+### Ventas y ganancias por ciudad 
+```{r}
+
+DT::datatable(shared_quakes)
+
+```
+
+
+
+# Entregas {data-icon='fa-truck'}
+
+row
+--------------------
+### Tiempo minimo de entrega
+
+```{r}
+
+minimo <- as.numeric(min(tienda$tiempo_entrega))
+ingresos = paste0(minimo," dias")
+
+valueBox(ingresos,
+         caption = paste0("<b>Tiempo minimo de entrega</b><br>"), 
+         icon = "fa-clock", color = "#0CB7EB")
+
+```
+
+
+### Tiempo maximo de entrega
+
+```{r}
+
+minimo <- as.numeric(max(tienda$tiempo_entrega))
+ingresos = paste0(minimo," dias")
+
+valueBox(ingresos,
+         caption = paste0("<b>Tiempo maximo de entrega</b><br>"), 
+         icon = "fa-clock", color = "#F5840C")
+
+```
+
+row
+--------------------
+
+### Distribución de tiempo de envio 
+
+```{r}
+fig <- plot_ly(tienda, x=~tiempo_entrega, type = "histogram") %>%
+  layout(title = 'Distribucion del tiempo de entregas')
+
+fig
+
+```
+
+### Distribución de las ganancias   
+
+```{r}
+
+info <- tienda %>% 
+  group_by(State) %>% 
+  summarise(Entregas = n(), 
+            Ganancia_pro_por_Envio = round(sum(Profit)/Entregas,2), 
+            tiempo_min = as.numeric(min(tiempo_entrega)), 
+            tiempo_max = as.numeric(max(tiempo_entrega)),
+            Ganancia_minima = round(min(Profit),2),
+            Ganancia_maxima = round(max(Profit),2)
+            )
+
+
+fig <- plot_ly(info, x=~Ganancia_pro_por_Envio, type = "histogram", color = "yellow") %>%
+  layout(title = 'Distribucion de ganancias por envio')
+
+fig
+
+```
+
+
+row
+--------------------
+
+### Metricas de entregas por estado
+```{r}
+DT::datatable(info)
+```
+
+
+
+# Data {data-icon='fa-database'}
+
+### data
+```{r}
+DT::datatable(tienda)
+
+```

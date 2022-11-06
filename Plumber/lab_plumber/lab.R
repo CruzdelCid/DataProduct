@@ -5,7 +5,8 @@ library(readr)
 library(lubridate)
 library(jsonlite)
 
-fit <- readRDS("modelo_final.rds")
+# fit <- readRDS("modelo_final.rds")
+fit <- readRDS(gzcon(url("https://github.com/CruzdelCid/DataProduct/blob/main/Plumber/lab_plumber/modelo_final.rds")))
 
 data_fecha <- read_csv("s&p.csv")
 
